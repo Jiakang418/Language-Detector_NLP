@@ -1,0 +1,68 @@
+D7 Custom Augmentation Dataset Quality Report
+=======================================================
+
+Total rows: 24
+Total columns: 9
+
+Rows by ISO code:
+iso_code
+unknown    11
+ms          3
+id          3
+zh          2
+ja          2
+ko          2
+en          1
+Name: count, dtype: int64
+
+Low confidence flag distribution:
+low_confidence_flag
+False    13
+True     11
+Name: count, dtype: int64
+
+Detected script counts:
+detected_script
+latin              15
+chinese             3
+japanese            2
+korean              2
+empty_or_symbol     2
+Name: count, dtype: int64
+
+Empty cleaned rows: 2
+
+Average original text length:
+4.458333333333333
+
+Average cleaned text length:
+5.090909090909091
+
+Sample cleaned rows:
+               text     cleaned_text  ...  detected_script low_confidence_flag
+0                ok               ok  ...            latin                True
+1              okay             okay  ...            latin                True
+2                hi               hi  ...            latin                True
+3             hello            hello  ...            latin               False
+4              halo             halo  ...            latin                True
+5               hai              hai  ...            latin                True
+6              saya             saya  ...            latin               False
+7               aku              aku  ...            latin               False
+8             makan            makan  ...            latin                True
+9        nasi lemak       nasi lemak  ...            latin               False
+10            bakso            bakso  ...            latin               False
+11              lah              lah  ...            latin               False
+12             dong             dong  ...            latin               False
+13                我                我  ...          chinese               False
+14               你好              你 好  ...          chinese               False
+15               私は              私 は  ...         japanese               False
+16               です              で す  ...         japanese               False
+17              ㅋㅋㅋ            ᄏ ᄏ ᄏ  ...           korean               False
+18               안녕              안 녕  ...           korean               False
+19                😂              NaN  ...  empty_or_symbol                True
+20            12345              NaN  ...  empty_or_symbol                True
+21       hello saya       hello saya  ...            latin                True
+22  saya suka bakso  saya suka bakso  ...            latin                True
+23       我 love NLP  我 l o v e N L P  ...          chinese                True
+
+[24 rows x 5 columns]

@@ -1,0 +1,43 @@
+Universal Dependencies Treebanks Data Cleaning Quality Report
+=================================================================
+
+Total cleaned rows: 2032
+Total columns: 7
+
+Rows per language:
+iso_code
+ko    989
+ja    543
+zh    500
+Name: count, dtype: int64
+
+Detected script counts:
+detected_script
+korean      989
+japanese    532
+chinese     510
+latin         1
+Name: count, dtype: int64
+
+Average original text length:
+40.46456692913386
+
+Average cleaned text length:
+68.60679133858268
+
+Empty cleaned rows: 0
+
+Sample cleaned rows:
+                                                text  ... detected_script
+0                                  然而，這樣的處理也衍生了一些問題。  ...         chinese
+1                   自從2004年提出了興建人文大樓的構想，企業界陸續有人提供捐款。  ...         chinese
+2           杜鵑花為溫帶植物，台北雖然在亞熱帶，但冬季的東北季風卻使得杜鵑花在臺大宜然自得。  ...         chinese
+3                   臺大醫學人文博物館是一棟兩層樓的建築，沿中山南路與仁愛路成L型。  ...         chinese
+4                                    樓頂有天文台，現為天文社使用。  ...         chinese
+5  國際北極研究中心的主要夥伴是日本和美國，參與會務的還有來自加拿大、中國、丹麥、德國、日本、挪...  ...         chinese
+6  其中參賽者年齡不可超過18歲（以當年7月1日為準），且必須就讀於中學校（Secondary ...  ...         chinese
+7                同年9月7日，亞奧理事會主席薩巴赫親王為國際射擊中心主持銅像揭幕儀式。  ...         chinese
+8     這些電話經交換機處理，使用的媒介包括海底電纜、人造衛星、無線電、光纖及IP電話（VOIP）。  ...         chinese
+9  《圓月彎刀》為古龍晚期作品，1976年6月至1978年5月，香港〈武俠春秋〉282至348期...  ...         chinese
+
+[10 rows x 4 columns]

@@ -1,6 +1,6 @@
 import pandas as pd
 
-input_path = "data/processed/flores_validation_cleaned.csv"
+input_path = "preprocessed_dataset/d5_flores_processed.csv"
 report_path = "reports/flores_quality_report.txt"
 
 df = pd.read_csv(input_path)

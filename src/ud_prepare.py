@@ -3,8 +3,7 @@ import requests
 import pandas as pd
 from conllu import parse_incr
 
-os.makedirs("data/raw/ud", exist_ok=True)
-os.makedirs("data/processed", exist_ok=True)
+os.makedirs("raw_dataset/UD", exist_ok=True)
 
 treebanks = {
     "zh": {
@@ -26,7 +25,7 @@ rows = []
 for iso_code, info in treebanks.items():
     language_name = info["language_name"]
     url = info["url"]
-    raw_path = f"data/raw/ud/{iso_code}_ud.conllu"
+    raw_path = f"raw_dataset/UD/{iso_code}_ud.conllu"
 
     print(f"Downloading {language_name} UD Treebank...")
     response = requests.get(url)
@@ -51,9 +50,9 @@ for iso_code, info in treebanks.items():
                 })
 
 df = pd.DataFrame(rows)
-df.to_csv("data/processed/ud_cjk_samples.csv", index=False, encoding="utf-8-sig")
+df.to_csv("raw_dataset/UD/ud_cjk_samples.csv", index=False, encoding="utf-8-sig")
 
-print("Saved: data/processed/ud_cjk_samples.csv")
+print("Saved: raw_dataset/UD/ud_cjk_samples.csv")
 print("Total rows:", len(df))
 print(df["iso_code"].value_counts())
 print(df.head())

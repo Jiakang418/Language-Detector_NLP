@@ -2,7 +2,7 @@ from datasets import load_dataset
 import pandas as pd
 import os
 
-os.makedirs("data/processed", exist_ok=True)
+os.makedirs("raw_dataset/Flores", exist_ok=True)
 
 language_map = {
     "eng_Latn": ("en", "English"),
@@ -48,9 +48,9 @@ for pair in pairs:
                     })
 
 df = pd.DataFrame(rows).drop_duplicates()
-df.to_csv("data/processed/flores_validation.csv", index=False, encoding="utf-8-sig")
+df.to_csv("raw_dataset/Flores/flores_validation.csv", index=False, encoding="utf-8-sig")
 
-print("Saved: data/processed/flores_validation.csv")
+print("Saved: raw_dataset/Flores/flores_validation.csv")
 print("Total rows:", len(df))
 print(df["iso_code"].value_counts())
 print(df.head())

@@ -1,0 +1,25 @@
+text,iso_code,language_name,source,usage,low_confidence_flag,notes
+ok,unknown,Ambiguous,Custom Augmentation,adversarial,true,Too short and common across many languages
+okay,unknown,Ambiguous,Custom Augmentation,adversarial,true,Common across many languages
+hi,unknown,Ambiguous,Custom Augmentation,adversarial,true,Too short
+hello,en,English,Custom Augmentation,adversarial,false,Common English greeting
+halo,unknown,Ambiguous,Custom Augmentation,adversarial,true,Can appear in Malay Indonesian or other languages
+hai,unknown,Ambiguous,Custom Augmentation,adversarial,true,Can appear in Malay Indonesian or informal English
+saya,ms,Malay,Custom Augmentation,adversarial,false,Common Malay pronoun
+aku,id,Indonesian,Custom Augmentation,adversarial,false,Common Indonesian informal pronoun
+makan,unknown,Ambiguous,Custom Augmentation,adversarial,true,Shared Malay and Indonesian word
+nasi lemak,ms,Malay,Custom Augmentation,adversarial,false,Common Malay food phrase
+bakso,id,Indonesian,Custom Augmentation,adversarial,false,Common Indonesian food word
+lah,ms,Malay,Custom Augmentation,adversarial,false,Common Malay discourse particle
+dong,id,Indonesian,Custom Augmentation,adversarial,false,Common Indonesian discourse particle
+我,zh,Chinese,Custom Augmentation,adversarial,false,Chinese character
+你好,zh,Chinese,Custom Augmentation,adversarial,false,Chinese greeting
+私は,ja,Japanese,Custom Augmentation,adversarial,false,Japanese phrase with Hiragana
+です,ja,Japanese,Custom Augmentation,adversarial,false,Japanese copula
+ㅋㅋㅋ,ko,Korean,Custom Augmentation,adversarial,false,Korean internet laughter
+안녕,ko,Korean,Custom Augmentation,adversarial,false,Korean greeting
+😂,unknown,Symbol Only,Custom Augmentation,adversarial,true,Emoji-only input
+12345,unknown,Number Only,Custom Augmentation,adversarial,true,Number-only input
+hello saya,unknown,Mixed,Custom Augmentation,adversarial,true,Mixed English Malay input
+saya suka bakso,unknown,Mixed Malay Indonesian,Custom Augmentation,adversarial,true,Contains Malay Indonesian overlap
+我 love NLP,unknown,Mixed,Custom Augmentation,adversarial,true,Mixed Chinese English input

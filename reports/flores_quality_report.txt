@@ -1,0 +1,44 @@
+FLORES-200 Data Cleaning Quality Report
+=============================================
+
+Total cleaned rows: 5060
+Total columns: 8
+
+Rows per language:
+iso_code
+en    1012
+zh    1012
+ja    1012
+id    1012
+ms    1012
+Name: count, dtype: int64
+
+Detected script counts:
+detected_script
+latin       3036
+chinese     1012
+japanese    1012
+Name: count, dtype: int64
+
+Average original text length:
+102.900395256917
+
+Average cleaned text length:
+118.65573122529645
+
+Empty cleaned rows: 0
+
+Sample cleaned rows:
+                                                text  ... detected_script
+0  "We now have 4-month-old mice that are non-dia...  ...           latin
+1              他补充道：“我们现在有 4 个月大没有糖尿病的老鼠，但它们曾经得过该病。”  ...         chinese
+2  Dr. Ehud Ur, professor of medicine at Dalhousi...  ...           latin
+3  埃胡德·乌尔博士（新斯科舍省哈利法克斯市达尔豪西大学医学教授，加拿大糖尿病协会临床与科学部门...  ...         chinese
+4  Like some other experts, he is skeptical about...  ...           latin
+5  和其他一些专家一样，他对糖尿病能否治愈持怀疑态度。他指出，这些发现与已患有 1 型糖尿病的人无关。  ...         chinese
+6  On Monday, Sara Danius, permanent secretary of...  ...           latin
+7  周一，瑞典学院诺贝尔文学委员会常务秘书萨拉·丹尼尔斯在瑞典广播电台的一档节目中向公众宣布，委...  ...         chinese
+8  Danius said, "Right now we are doing nothing. ...  ...           latin
+9  达尼厄斯说道：“目前我们保持按兵不动。我给他关系最好的合作者打过电话并发送了电子邮件，而且收...  ...         chinese
+
+[10 rows x 4 columns]

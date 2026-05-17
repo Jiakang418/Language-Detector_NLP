@@ -1,0 +1,50 @@
+Baseline Models Evaluation Report
+============================================================
+Model: Multinomial_Naive_Bayes
+Training Time: 60.70 seconds
+Inference Time: 10.84 seconds (on 50087 samples)
+Accuracy: 0.9391
+Classification Report:
+              precision    recall  f1-score   support
+
+          ar       1.00      1.00      1.00      3399
+          de       0.99      0.99      0.99      3399
+          en       0.93      0.99      0.96      3603
+          es       0.99      0.99      0.99      3398
+          fr       0.99      0.99      0.99      3397
+          id       0.86      0.96      0.91     13597
+          ja       1.00      0.97      0.99      3711
+          ko       1.00      0.90      0.94      2683
+          ms       0.95      0.96      0.96     10796
+     unknown       0.00      0.00      0.00         2
+          zh       0.99      0.27      0.43      2102
+
+    accuracy                           0.94     50087
+   macro avg       0.88      0.82      0.83     50087
+weighted avg       0.94      0.94      0.93     50087
+
+------------------------------------------------------------
+Model: Logistic_Regression
+Training Time: 132.18 seconds
+Inference Time: 20.41 seconds (on 50087 samples)
+Accuracy: 0.9711
+Classification Report:
+              precision    recall  f1-score   support
+
+          ar       1.00      0.99      1.00      3399
+          de       1.00      0.98      0.99      3399
+          en       0.95      0.98      0.97      3603
+          es       0.99      0.99      0.99      3398
+          fr       0.99      0.98      0.99      3397
+          id       0.96      0.98      0.97     13597
+          ja       1.00      0.97      0.98      3711
+          ko       0.99      0.89      0.94      2683
+          ms       0.97      0.96      0.97     10796
+     unknown       0.00      0.00      0.00         2
+          zh       0.85      0.97      0.91      2102
+
+    accuracy                           0.97     50087
+   macro avg       0.88      0.88      0.88     50087
+weighted avg       0.97      0.97      0.97     50087
+
+------------------------------------------------------------

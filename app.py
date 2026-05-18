@@ -83,20 +83,82 @@ def _preprocess(text: str) -> str:
         return text.lower().strip()
 
 
+def _script_shortcut(text: str) -> list[tuple[str, float]] | None:
+    """
+    For scripts that map unambiguously to one language, skip the ML model.
+    Returns a ranked list or None (meaning: let the ML model handle it).
+    """
+    has_hiragana  = any(0x3040 <= ord(c) <= 0x309F for c in text)
+    has_katakana  = any(0x30A0 <= ord(c) <= 0x30FF for c in text)
+    has_hangul    = any(0xAC00 <= ord(c) <= 0xD7AF or
+                        0x1100 <= ord(c) <= 0x11FF for c in text)
+    has_arabic    = any(0x0600 <= ord(c) <= 0x06FF for c in text)
+    has_cjk       = any(0x4E00 <= ord(c) <= 0x9FFF for c in text)
+
+    if has_hiragana or has_katakana:
+        return [("ja", 0.98), ("zh", 0.01), ("ko", 0.01)]
+    if has_hangul:
+        return [("ko", 0.98), ("ja", 0.01), ("zh", 0.01)]
+    if has_arabic:
+        return [("ar", 0.98), ("ms", 0.01), ("en", 0.01)]
+    if has_cjk:
+        return [("zh", 0.97), ("ja", 0.02), ("ko", 0.01)]
+    return None   # Latin / other — use ML model
+
+
+# Lexical markers that strongly distinguish Malay from Indonesian
+_MS_ONLY = {"kerana", "awak", "polis", "bas", "berbeza", "telefon", "doktor",
+            "manakala", "walau", "sahaja", "sekadar", "ialah", "iaitu",
+            "daripada", "kepada", "mempunyai", "hendak", "sudah", "sudahkah"}
+_ID_ONLY = {"karena", "kamu", "enggak", "nggak", "gimana", "banget", "dong",
+            "deh", "sih", "aja", "udah", "gak", "emang", "kayak", "polisi",
+            "berbeda", "telepon", "dokter", "juga", "hanya", "bisa", "akan"}
+
+
+def _lexical_boost(text: str, ranked: list[tuple[str, float]]) -> list[tuple[str, float]]:
+    """
+    When the model is uncertain between Malay and Indonesian (top-2 are ms/id
+    with < 0.85 confidence), apply lexical rules using language-exclusive words
+    to nudge the result toward the correct language.
+    """
+    top_iso, top_conf = ranked[0]
+    if top_iso not in ("ms", "id") or top_conf >= 0.85:
+        return ranked
+
+    words = set(text.lower().split())
+    ms_hits = len(words & _MS_ONLY)
+    id_hits = len(words & _ID_ONLY)
+
+    if ms_hits == id_hits:
+        return ranked  # no signal, leave unchanged
+
+    winner  = "ms" if ms_hits > id_hits else "id"
+    loser   = "id" if winner == "ms" else "ms"
+    boost   = min(0.15 * abs(ms_hits - id_hits), 0.25)
+
+    probs = dict(ranked)
+    probs[winner] = min(probs.get(winner, 0) + boost, 0.99)
+    probs[loser]  = max(probs.get(loser,  0) - boost, 0.01)
+
+    return sorted(probs.items(), key=lambda t: t[1], reverse=True)
+
+
+def _ml_predict(processed: str, model_name: str) -> list[tuple[str, float]]:
+    """Run the sklearn pipeline and return ranked (iso, prob) pairs."""
+    pipeline = _MODELS[model_name]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        raw_probs = pipeline.predict_proba([processed])[0]
+    classes = [str(c) for c in pipeline.classes_]
+    ranked  = sorted(zip(classes, (float(p) for p in raw_probs)),
+                     key=lambda t: t[1], reverse=True)
+    ranked  = [(iso, p) for iso, p in ranked if iso != "unknown"]
+    return _lexical_boost(processed, ranked)
+
+
 def _demo_predict(text: str) -> list[tuple[str, float]]:
     """Rule-based fallback when no model is loaded."""
-    try:
-        from src.preprocess import detect_script
-        script = detect_script(text)
-    except Exception:
-        script = "latin"
     words = set(text.lower().split())
-    if script == "chinese":
-        return [("zh", 0.95), ("ja", 0.03), ("ko", 0.02)]
-    if script == "japanese":
-        return [("ja", 0.93), ("zh", 0.05), ("ko", 0.02)]
-    if script == "korean":
-        return [("ko", 0.94), ("ja", 0.04), ("zh", 0.02)]
     if words & {"berkenaan", "kepada", "kerana", "dengan", "untuk", "adalah", "boleh"}:
         return [("ms", 0.78), ("id", 0.18), ("en", 0.04)]
     if words & {"saya", "aku", "tidak", "yang", "bisa", "juga", "dari", "ini"}:
@@ -107,29 +169,26 @@ def _demo_predict(text: str) -> list[tuple[str, float]]:
         return [("de", 0.87), ("en", 0.08), ("fr", 0.05)]
     if words & {"hola", "gracias", "por", "que", "esta", "para", "como", "pero"}:
         return [("es", 0.82), ("fr", 0.10), ("en", 0.08)]
-    if any("؀" <= c <= "ۿ" for c in text):
-        return [("ar", 0.93), ("ms", 0.04), ("id", 0.03)]
     return [("en", 0.85), ("ms", 0.08), ("id", 0.07)]
 
 
 def _detect_language_backend(text: str, model_name: str = "") -> dict:
     """
-    Core detection.  Pass model_name = key in _MODELS to use a trained model;
-    any other value (or empty string) falls back to the rule-based demo.
+    Detection pipeline:
+      1. Script shortcut  — handles Arabic / CJK / Hangul / Hiragana with ~98% accuracy
+      2. ML model         — handles Latin-script languages (LR 97.1%, NB 93.9%)
+      3. Demo fallback    — keyword rules when no model is loaded
     """
-    processed = _preprocess(text)
+    # Step 1: script-based shortcut (unambiguous non-Latin scripts)
+    ranked = _script_shortcut(text)
 
-    if model_name in _MODELS:
-        pipeline = _MODELS[model_name]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            raw_probs  = pipeline.predict_proba([processed])[0]
-        classes    = [str(c) for c in pipeline.classes_]
-        ranked     = sorted(zip(classes, (float(p) for p in raw_probs)),
-                            key=lambda t: t[1], reverse=True)
-        ranked     = [(iso, p) for iso, p in ranked if iso != "unknown"]
-    else:
-        ranked = _demo_predict(text)
+    # Step 2: ML model for everything else
+    if ranked is None:
+        processed = _preprocess(text)
+        if model_name in _MODELS:
+            ranked = _ml_predict(processed, model_name)
+        else:
+            ranked = _demo_predict(processed)
 
     top_iso, top_conf = ranked[0]
     return {
@@ -183,9 +242,11 @@ def _conf_card(confidence: float = -1) -> str:
     if pct >= 80:
         color, label = "#10B981", "High confidence"
     elif pct >= 60:
-        color, label = "#F59E0B", "Moderate"
-    else:
+        color, label = "#F59E0B", "Moderate confidence"
+    elif pct >= 40:
         color, label = "#EF4444", "Low confidence"
+    else:
+        color, label = "#6B7280", "Ambiguous — try more text"
     return f"""
     <div class="result-card" style="border-left: 4px solid {color}">
       <div class="result-label">🎯 Confidence Score</div>
@@ -336,26 +397,6 @@ def clear_history_fn():
 # ── CSS ───────────────────────────────────────────────────────────────────────
 
 CSS = """
-/* ── Keyframe animations ────────────────────────────────────────── */
-@keyframes gradient-flow {
-    0%   { background-position: 0%   50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0%   50%; }
-}
-@keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 6px 20px rgba(99,102,241,0.50); }
-    50%       { box-shadow: 0 6px 32px rgba(99,102,241,0.85),
-                            0 0 0 6px rgba(99,102,241,0.12); }
-}
-@keyframes slide-up {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes shimmer {
-    0%   { background-position: -200% center; }
-    100% { background-position:  200% center; }
-}
-
 /* ── Global ─────────────────────────────────────────────────────── */
 .gradio-container {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
@@ -363,20 +404,14 @@ CSS = """
     margin: 0 auto !important;
 }
 
-/* ── Hero — animated gradient + dot-grid overlay ────────────────── */
+/* ── Hero — static gradient + dot-grid overlay ──────────────────── */
 .hero {
     position: relative;
-    background: linear-gradient(-45deg, #0f0c29, #1e1b4b, #2e1065, #4c1d95, #312e81);
-    background-size: 400% 400%;
-    animation: gradient-flow 10s ease infinite;
+    background: linear-gradient(135deg, #0f0c29 0%, #1e1b4b 40%, #2e1065 70%, #4c1d95 100%);
     border-radius: 24px;
     padding: 48px 56px 44px;
     margin-bottom: 32px;
     overflow: hidden;
-    box-shadow:
-        0  2px  0  rgba(255,255,255,0.08) inset,
-        0 24px 80px rgba(76,29,149,0.55),
-        0 48px 120px rgba(49,46,129,0.30);
 }
 /* dot-grid pattern */
 .hero::before {
@@ -385,17 +420,6 @@ CSS = """
     inset: 0;
     background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
     background-size: 28px 28px;
-    pointer-events: none;
-    z-index: 0;
-}
-/* large blurred orb top-right */
-.hero::after {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 320px; height: 320px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(167,139,250,0.18) 0%, transparent 70%);
     pointer-events: none;
     z-index: 0;
 }
@@ -425,12 +449,10 @@ CSS = """
     line-height: 1.08 !important;
 }
 .hero h1 .accent {
-    background: linear-gradient(90deg, #a78bfa, #818cf8, #c4b5fd);
-    background-size: 200% auto;
+    background: linear-gradient(90deg, #a78bfa, #c4b5fd);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: shimmer 3s linear infinite;
 }
 .hero p {
     font-size: 1.05rem !important;
@@ -459,7 +481,7 @@ CSS = """
     border-color: rgba(255,255,255,0.28);
 }
 
-/* ── Detect button — animated glow ──────────────────────────────── */
+/* ── Detect button ──────────────────────────────────────────────── */
 #detect-btn {
     background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
     border: none !important;
@@ -467,18 +489,17 @@ CSS = """
     font-weight: 700 !important;
     font-size: 1rem !important;
     letter-spacing: 0.01em !important;
-    animation: pulse-glow 2.5s ease-in-out infinite !important;
-    transition: transform 0.15s ease !important;
+    box-shadow: 0 6px 20px rgba(99,102,241,0.45) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease !important;
     min-height: 50px !important;
 }
 #detect-btn:hover {
     transform: translateY(-2px) !important;
-    animation: none !important;
-    box-shadow: 0 12px 36px rgba(99,102,241,0.70) !important;
+    box-shadow: 0 12px 36px rgba(99,102,241,0.65) !important;
 }
 #detect-btn:active {
     transform: translateY(0) !important;
-    box-shadow: 0 4px 12px rgba(99,102,241,0.50) !important;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.40) !important;
 }
 #clear-btn {
     border-radius: 14px !important;
@@ -494,15 +515,9 @@ CSS = """
     border: 1px solid var(--border-color-primary);
     border-left: 4px solid var(--border-color-primary);
     border-radius: 18px;
-    padding: 22px 24px;
-    min-height: 108px;
-    margin-bottom: 12px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    animation: slide-up 0.3s ease both;
-}
-.result-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    padding: 30px 36px;
+    min-height: 116px;
+    margin-bottom: 14px;
 }
 .result-label {
     font-size: 0.65rem;
@@ -591,15 +606,10 @@ CSS = """
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 15px 22px;
+    padding: 18px 28px;
     border-bottom: 1px solid var(--border-color-primary);
-    transition: background 0.15s, transform 0.15s;
 }
 .alt-row:last-child { border-bottom: none; }
-.alt-row:hover {
-    background: var(--background-fill-primary);
-    transform: translateX(3px);
-}
 .alt-medal { font-size: 1.2rem; width: 26px; flex-shrink: 0; }
 .alt-flag  { font-size: 1.4rem; flex-shrink: 0; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.2)); }
 .alt-info  { display: flex; align-items: center; gap: 8px; min-width: 150px; }
@@ -647,15 +657,9 @@ CSS = """
     background: var(--background-fill-secondary);
     border: 1px solid var(--border-color-primary);
     border-radius: 20px;
-    padding: 30px 20px;
+    padding: 40px 28px;
     text-align: center;
-    transition: transform 0.2s ease, box-shadow 0.25s ease;
-    animation: slide-up 0.35s ease both;
 }
-.stat-card:hover { transform: translateY(-5px); }
-.stat-card.indigo:hover { box-shadow: 0 16px 48px rgba(99,102,241,0.22); }
-.stat-card.green:hover  { box-shadow: 0 16px 48px rgba(16,185,129,0.22); }
-.stat-card.amber:hover  { box-shadow: 0 16px 48px rgba(245,158,11,0.22); }
 .stat-icon  { font-size: 2.2rem; margin-bottom: 14px; }
 .stat-value {
     font-size: 2.8rem;
@@ -733,7 +737,7 @@ with gr.Blocks(title="Language Detector") as demo:
     with gr.Tabs():
 
         # ── Tab 1 · Detect ────────────────────────────────────────────────
-        with gr.Tab("🔍  Detect"):
+        with gr.Tab("Detect"):
             with gr.Row():
                 # Left column — input
                 with gr.Column(scale=3):
@@ -746,7 +750,6 @@ with gr.Blocks(title="Language Detector") as demo:
                         choices=_RADIO_CHOICES,
                         value=_RADIO_DEFAULT,
                         label="Detection Model",
-                        info=_RADIO_INFO,
                     )
                     with gr.Row():
                         detect_btn = gr.Button(
@@ -777,7 +780,7 @@ with gr.Blocks(title="Language Detector") as demo:
             )
 
         # ── Tab 2 · History ───────────────────────────────────────────────
-        with gr.Tab("📋  History"):
+        with gr.Tab("History"):
             gr.Markdown(
                 "Every detection is logged here automatically. "
                 "Switch back to **Detect** and run a detection to populate this table.",
@@ -801,7 +804,7 @@ with gr.Blocks(title="Language Detector") as demo:
                 )
 
         # ── Tab 3 · Statistics ────────────────────────────────────────────
-        with gr.Tab("📊  Statistics"):
+        with gr.Tab("Statistics"):
             gr.Markdown(
                 "Live stats — refreshed automatically after every detection.",
                 elem_classes=["section-label"],

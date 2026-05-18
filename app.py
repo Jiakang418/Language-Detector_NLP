@@ -8,10 +8,47 @@ The function receives raw user text and must return the dict described in its
 docstring.  Everything else in this file is UI/layout code.
 """
 
+import os
+import sys
+import warnings
 import pandas as pd
 from datetime import datetime
 from collections import Counter
 import gradio as gr
+import joblib
+
+# Suppress sklearn version-mismatch warnings (models saved on 1.6.1, running 1.7.x)
+warnings.filterwarnings("ignore", message=".*InconsistentVersionWarning.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+
+# ── Model loading ─────────────────────────────────────────────────────────────
+
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _BASE_DIR)
+
+_MODELS: dict = {}
+
+def _load_models() -> None:
+    candidates = {
+        "Logistic Regression": "models/baseline_logistic_regression.joblib",
+        "Naive Bayes":         "models/baseline_multinomial_naive_bayes.joblib",
+    }
+    for name, rel in candidates.items():
+        path = os.path.join(_BASE_DIR, rel)
+        if os.path.exists(path):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                _MODELS[name] = joblib.load(path)
+            print(f"[model] Loaded: {name}")
+        else:
+            print(f"[model] Not found: {path}")
+
+_load_models()
+
+# Radio choices and default shown in the UI
+_RADIO_CHOICES = list(_MODELS.keys()) if _MODELS else ["Demo Mode"]
+_RADIO_DEFAULT = "Logistic Regression" if "Logistic Regression" in _MODELS else _RADIO_CHOICES[0]
+_RADIO_INFO    = "LR: 97.1% acc  ·  NB: 93.9% acc" if _MODELS else "No trained models found — using rule-based demo"
 
 
 # ── Language metadata ─────────────────────────────────────────────────────────
@@ -35,69 +72,82 @@ LANG_COLORS = {
 }
 
 
-# ── Backend hook ──────────────────────────────────────────────────────────────
+# ── Backend ───────────────────────────────────────────────────────────────────
 
-def _detect_language_backend(text: str) -> dict:
-    """
-    SWAP THIS FUNCTION when the sklearn model is ready.
+def _preprocess(text: str) -> str:
+    try:
+        from src.preprocess import preprocess_text
+        result = preprocess_text(text)
+        return result if result else text.lower().strip()
+    except Exception:
+        return text.lower().strip()
 
-    Returns dict with keys:
-        language     : str   — full name,       e.g. "French"
-        iso_code     : str   — ISO 639-1 code,  e.g. "fr"
-        confidence   : float — top-1 prob,      e.g. 0.913
-        alternatives : list[dict]  — 3 entries, each:
-                       {"Language": str, "ISO Code": str, "Confidence": str}
-    """
-    # ── placeholder — replace body with: return real_model.predict(text) ──
-    import sys, os
-    sys.path.insert(0, os.path.dirname(__file__))
+
+def _demo_predict(text: str) -> list[tuple[str, float]]:
+    """Rule-based fallback when no model is loaded."""
     try:
         from src.preprocess import detect_script
         script = detect_script(text)
     except Exception:
         script = "latin"
-
     words = set(text.lower().split())
-
     if script == "chinese":
-        probs = [("zh", 0.95), ("ja", 0.03), ("ko", 0.02)]
-    elif script == "japanese":
-        probs = [("ja", 0.93), ("zh", 0.05), ("ko", 0.02)]
-    elif script == "korean":
-        probs = [("ko", 0.94), ("ja", 0.04), ("zh", 0.02)]
-    elif words & {"berkenaan", "kepada", "kerana", "dengan", "untuk", "adalah", "boleh"}:
-        probs = [("ms", 0.78), ("id", 0.18), ("en", 0.04)]
-    elif words & {"saya", "aku", "tidak", "yang", "bisa", "juga", "dari", "ini"}:
-        probs = [("id", 0.55), ("ms", 0.40), ("en", 0.05)]
-    elif words & {"je", "les", "des", "une", "vous", "nous", "est", "dans"}:
-        probs = [("fr", 0.88), ("es", 0.07), ("en", 0.05)]
-    elif words & {"ich", "die", "der", "das", "und", "ist", "nicht", "mit"}:
-        probs = [("de", 0.87), ("en", 0.08), ("fr", 0.05)]
-    elif words & {"hola", "gracias", "por", "que", "esta", "para", "como", "pero"}:
-        probs = [("es", 0.82), ("fr", 0.10), ("en", 0.08)]
-    elif any("؀" <= c <= "ۿ" for c in text):
-        probs = [("ar", 0.93), ("ms", 0.04), ("id", 0.03)]
-    else:
-        probs = [("en", 0.85), ("ms", 0.08), ("id", 0.07)]
+        return [("zh", 0.95), ("ja", 0.03), ("ko", 0.02)]
+    if script == "japanese":
+        return [("ja", 0.93), ("zh", 0.05), ("ko", 0.02)]
+    if script == "korean":
+        return [("ko", 0.94), ("ja", 0.04), ("zh", 0.02)]
+    if words & {"berkenaan", "kepada", "kerana", "dengan", "untuk", "adalah", "boleh"}:
+        return [("ms", 0.78), ("id", 0.18), ("en", 0.04)]
+    if words & {"saya", "aku", "tidak", "yang", "bisa", "juga", "dari", "ini"}:
+        return [("id", 0.55), ("ms", 0.40), ("en", 0.05)]
+    if words & {"je", "les", "des", "une", "vous", "nous", "est", "dans"}:
+        return [("fr", 0.88), ("es", 0.07), ("en", 0.05)]
+    if words & {"ich", "die", "der", "das", "und", "ist", "nicht", "mit"}:
+        return [("de", 0.87), ("en", 0.08), ("fr", 0.05)]
+    if words & {"hola", "gracias", "por", "que", "esta", "para", "como", "pero"}:
+        return [("es", 0.82), ("fr", 0.10), ("en", 0.08)]
+    if any("؀" <= c <= "ۿ" for c in text):
+        return [("ar", 0.93), ("ms", 0.04), ("id", 0.03)]
+    return [("en", 0.85), ("ms", 0.08), ("id", 0.07)]
 
-    top_iso, top_conf = probs[0]
+
+def _detect_language_backend(text: str, model_name: str = "") -> dict:
+    """
+    Core detection.  Pass model_name = key in _MODELS to use a trained model;
+    any other value (or empty string) falls back to the rule-based demo.
+    """
+    processed = _preprocess(text)
+
+    if model_name in _MODELS:
+        pipeline = _MODELS[model_name]
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            raw_probs  = pipeline.predict_proba([processed])[0]
+        classes    = [str(c) for c in pipeline.classes_]
+        ranked     = sorted(zip(classes, (float(p) for p in raw_probs)),
+                            key=lambda t: t[1], reverse=True)
+        ranked     = [(iso, p) for iso, p in ranked if iso != "unknown"]
+    else:
+        ranked = _demo_predict(text)
+
+    top_iso, top_conf = ranked[0]
     return {
         "language":     LANG_NAMES.get(top_iso, top_iso.upper()),
         "iso_code":     top_iso,
         "confidence":   top_conf,
         "alternatives": [
-            {"Language": LANG_NAMES.get(iso, iso.upper()),
-             "ISO Code": iso,
-             "Confidence": f"{conf * 100:.1f}%"}
-            for iso, conf in probs[:3]
+            {"Language":    LANG_NAMES.get(iso, iso.upper()),
+             "ISO Code":    iso,
+             "Confidence":  f"{float(conf) * 100:.1f}%"}
+            for iso, conf in ranked[:3]
         ],
     }
-    # ── end placeholder ───────────────────────────────────────────────────
 
 
 # ── Column names ──────────────────────────────────────────────────────────────
 
-HISTORY_COLS = ["Text", "Detected Language", "Confidence", "Timestamp"]
+HISTORY_COLS = ["Text", "Detected Language", "Confidence", "Model", "Timestamp"]
 
 
 # ── HTML builders ─────────────────────────────────────────────────────────────
@@ -234,7 +284,7 @@ def _compute_stats(history: list[dict]) -> tuple[str, str, str, pd.DataFrame]:
 
 # ── Event handlers ────────────────────────────────────────────────────────────
 
-def run_detection(text: str, history: list[dict]):
+def run_detection(text: str, history: list[dict], model_name: str):
     """All 9 outputs must always be returned in the same order."""
     t_h, u_h, a_h, freq_df = _compute_stats(history)
 
@@ -246,7 +296,7 @@ def run_detection(text: str, history: list[dict]):
             history,
         )
 
-    result  = _detect_language_backend(text)
+    result  = _detect_language_backend(text, model_name)
     iso     = result["iso_code"]
     lang_h  = _lang_card(result["language"], iso)
     conf_h  = _conf_card(result["confidence"])
@@ -260,6 +310,7 @@ def run_detection(text: str, history: list[dict]):
         "Text":              truncated,
         "Detected Language": lang_disp,
         "Confidence":        conf_disp,
+        "Model":             model_name,
         "Timestamp":         datetime.now().strftime("%H:%M:%S"),
     }]
 
@@ -691,6 +742,12 @@ with gr.Blocks(title="Language Detector") as demo:
                         placeholder="Type or paste any text here…",
                         lines=5,
                     )
+                    model_selector = gr.Radio(
+                        choices=_RADIO_CHOICES,
+                        value=_RADIO_DEFAULT,
+                        label="Detection Model",
+                        info=_RADIO_INFO,
+                    )
                     with gr.Row():
                         detect_btn = gr.Button(
                             "🔍  Detect Language",
@@ -778,7 +835,7 @@ with gr.Blocks(title="Language Detector") as demo:
 
     detect_btn.click(
         fn=run_detection,
-        inputs=[text_input, history_state],
+        inputs=[text_input, history_state, model_selector],
         outputs=all_detect_outputs,
     )
 

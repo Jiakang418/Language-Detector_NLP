@@ -30,8 +30,8 @@ _MODELS: dict = {}
 
 def _load_models() -> None:
     candidates = {
-        "Logistic Regression": "models/baseline_logistic_regression.joblib",
-        "Naive Bayes":         "models/baseline_multinomial_naive_bayes.joblib",
+        "Advanced Logistic Regression": "models/advanced_lr.joblib",
+        "Advanced Naive Bayes":         "models/advanced_mnb.joblib",
     }
     for name, rel in candidates.items():
         path = os.path.join(_BASE_DIR, rel)
@@ -47,8 +47,8 @@ _load_models()
 
 # Radio choices and default shown in the UI
 _RADIO_CHOICES = list(_MODELS.keys()) if _MODELS else ["Demo Mode"]
-_RADIO_DEFAULT = "Logistic Regression" if "Logistic Regression" in _MODELS else _RADIO_CHOICES[0]
-_RADIO_INFO    = "LR: 97.1% acc  ·  NB: 93.9% acc" if _MODELS else "No trained models found — using rule-based demo"
+_RADIO_DEFAULT = "Advanced Logistic Regression" if "Advanced Logistic Regression" in _MODELS else _RADIO_CHOICES[0]
+_RADIO_INFO    = "LR: 97.2% acc  ·  NB: 96.4% acc" if _MODELS else "No trained models found — using rule-based demo"
 
 
 # ── Language metadata ─────────────────────────────────────────────────────────

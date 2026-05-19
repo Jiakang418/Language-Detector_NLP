@@ -1,0 +1,51 @@
+Advanced Models Evaluation Report
+============================================================
+Best MNB Params: {'features__char_tfidf__ngram_range': (2, 3), 'clf__alpha': 0.1}
+Best LR Params: {'features__word_tfidf__max_features': 15000, 'clf__C': 0.5}
+
+Model: Advanced_MNB
+Training Time: 48.67 seconds
+Accuracy: 0.9640
+Classification Report:
+              precision    recall  f1-score   support
+
+          ar       1.00      1.00      1.00      3399
+          de       0.99      0.99      0.99      3399
+          en       0.94      0.99      0.97      3603
+          es       0.99      0.99      0.99      3398
+          fr       0.99      0.99      0.99      3397
+          id       0.93      0.96      0.94     13597
+          ja       1.00      0.99      0.99      3711
+          ko       1.00      0.93      0.96      2683
+          ms       0.96      0.96      0.96     10796
+     unknown       0.00      0.00      0.00         2
+          zh       0.99      0.76      0.86      2102
+
+    accuracy                           0.96     50087
+   macro avg       0.89      0.87      0.88     50087
+weighted avg       0.96      0.96      0.96     50087
+
+------------------------------------------------------------
+Model: Advanced_LR
+Training Time: 93.72 seconds
+Accuracy: 0.9723
+Classification Report:
+              precision    recall  f1-score   support
+
+          ar       1.00      1.00      1.00      3399
+          de       1.00      0.99      0.99      3399
+          en       0.94      0.98      0.96      3603
+          es       0.99      0.99      0.99      3398
+          fr       0.99      0.99      0.99      3397
+          id       0.97      0.97      0.97     13597
+          ja       1.00      0.97      0.98      3711
+          ko       0.99      0.90      0.94      2683
+          ms       0.97      0.96      0.97     10796
+     unknown       0.00      0.00      0.00         2
+          zh       0.85      0.98      0.91      2102
+
+    accuracy                           0.97     50087
+   macro avg       0.88      0.88      0.88     50087
+weighted avg       0.97      0.97      0.97     50087
+
+------------------------------------------------------------

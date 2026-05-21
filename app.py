@@ -150,6 +150,23 @@ def _ml_predict(processed: str, model_name: str) -> list[tuple[str, float]]:
         warnings.simplefilter("ignore")
         raw_probs = pipeline.predict_proba([processed])[0]
     classes = [str(c) for c in pipeline.classes_]
+
+    # Negative Script Constraint: Prevent Latin text from misclassifying as CJK/Arabic
+    has_cjk_or_arabic = any(
+        0x3040 <= ord(c) <= 0x309F or 0x30A0 <= ord(c) <= 0x30FF or # Japanese
+        0xAC00 <= ord(c) <= 0xD7AF or 0x1100 <= ord(c) <= 0x11FF or # Korean
+        0x4E00 <= ord(c) <= 0x9FFF or # Chinese
+        0x0600 <= ord(c) <= 0x06FF    # Arabic
+        for c in processed
+    )
+    if not has_cjk_or_arabic:
+        for i, c in enumerate(classes):
+            if c in ["zh", "ja", "ko", "ar"]:
+                raw_probs[i] = 0.0
+        total = sum(raw_probs)
+        if total > 0:
+            raw_probs = [p / total for p in raw_probs]
+
     ranked  = sorted(zip(classes, (float(p) for p in raw_probs)),
                      key=lambda t: t[1], reverse=True)
     ranked  = [(iso, p) for iso, p in ranked if iso != "unknown"]
